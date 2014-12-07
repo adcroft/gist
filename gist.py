@@ -43,23 +43,19 @@ def main():
                       personal access tokens where you can revoke a token if needed.""")
   parser_logOut.set_defaults(action=logOut)
 
+  parser_listGists = subparsers.add_parser('list',
+       help='Lists your gists.',
+       description="""Lists your gists.""")
+  parser_listGists.add_argument('-u','--user', type=str, help="A GitHub user's handle.")
+  parser_listGists.add_argument('-n','--nentries', type=int, default=100,
+       help='Stop after n gists. Default is 100.')
+  parser_listGists.set_defaults(action=listGists)
+
   args = parser.parse_args()
-  print args.action(args)
 
-  return
-
-
-
-  response = requests.get(_APIurl+'/users/Adcroft/gists', auth=('Adcroft',password))
-  content = json.loads(response.text)
-  #print json.dumps(content, indent=2)
-  for g in content:
-    print g['git_pull_url'],g['description']
-  payload = {'note': 'CLI helper'}
-  response = requests.post(_APIurl+'/authorizations', auth=('Adcroft',password),
-                           data=json.dumps(payload))
-  content = json.loads(response.text)
-  print json.dumps(content, indent=2)
+  msg = args.action(args)
+  # The actions associated with each sub-command can return a message (errors) or None.
+  if msg is not None: print msg
 
 
 def logIn(args):
@@ -123,7 +119,7 @@ def logOut(args):
                           auth=(user,password))
   if response.status_code != 200:
     return 'ERROR: '+json.loads(response.text).get('message',
-             'No message returned from server.')
+           'No message returned from server.')
   content = json.loads(response.text)
 
   for auth in content:
@@ -133,11 +129,40 @@ def logOut(args):
                                  auth=(user,password))
       if response.status_code != 204:
         return 'ERROR: '+json.loads(response.text).get('message',
-             'Was expecting code 204 but got none.')
+               'Was expecting code 204 but got none.')
       os.remove(_tokenFile)
       return 'Log out succesful'
   return 'No matching token found on GitHub. Delete the token on GitHub by hand and remove '+_tokenFile
 
+
+def listGists(args):
+  """
+  Lists gists.
+  """
+
+  if args.user is None:
+    user, token = getStoredToken()
+    if token is None:
+      return "No stored token found. Use '" + _thisTool + " login <USER>' to obtain a token."
+    authHeader = {'Authorization': 'token '+token}
+    url = _APIurl + '/gists'
+  else:
+    user = args.user
+    authHeader = {}
+    url = _APIurl + '/users/' + user + '/gists'
+  entries = 0
+  while url is not None:
+    response = requests.get(url, headers=authHeader, stream=True)
+    if response.status_code != 200:
+      return 'ERROR: '+json.loads(response.text).get('message',
+             'No message returned from server.')
+    url = response.links['next']['url'] if 'next' in response.links else None
+    for g in response.json():
+      if (entries>=args.nentries):
+        return 'Stopped streaming after %i responses.' % entries
+      visibility = 'public' if g['public'] else 'private'
+      print '%-20s %-7s %s' % (g['id'], visibility, g['description'])
+      entries += 1
 
 
 # Invoke the top-level procedure
