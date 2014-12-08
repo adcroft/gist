@@ -45,11 +45,19 @@ def main():
 
   parser_listGists = subparsers.add_parser('list',
        help='Lists your gists.',
-       description="""Lists your gists.""")
+       description="""Lists all your gists, or those of the specified user (-u option).
+                      If you provide your own user id with the -u option, you will see
+                      only your public gists.""")
   parser_listGists.add_argument('-u','--user', type=str, help="A GitHub user's handle.")
   parser_listGists.add_argument('-n','--nentries', type=int, default=100,
        help='Stop after n gists. Default is 100.')
   parser_listGists.set_defaults(action=listGists)
+
+  parser_gistInfo = subparsers.add_parser('info',
+       help='Dumps the meta-information about a gist.',
+       description="""Dumps the meta-information about a gist.""")
+  parser_gistInfo.add_argument('GISTID', type=str, help="A gist id. Usually a 20 character hex or a long integer.")
+  parser_gistInfo.set_defaults(action=gistInfo)
 
   args = parser.parse_args()
 
@@ -163,6 +171,32 @@ def listGists(args):
       visibility = 'public' if g['public'] else 'private'
       print '%-20s %-7s %s' % (g['id'], visibility, g['description'])
       entries += 1
+
+
+def gistInfo(args):
+  """
+  Shows all meta-information about a particular gist.
+  """
+
+  user, token = getStoredToken()
+  if token is None:
+    authHeader = {}
+    print "No stored token found. Trying with public access. Otherwise use '" + \
+          _thisTool + " login <USER>' to obtain a token."
+  else: authHeader = {'Authorization': 'token '+token}
+  url = _APIurl + '/gists/' + args.GISTID
+  response = requests.get(url, headers=authHeader)
+  if response.status_code != 200:
+    return 'ERROR: '+json.loads(response.text).get('message',
+           'No message returned from server.')
+  d = response.json()
+  # Remove some of the more verbose data for clarity
+  del d['owner']
+  del d['user']
+  for f in d['files']:
+    del d['files'][f]['content']
+  del d['history']
+  print json.dumps(d, indent=2)
 
 
 # Invoke the top-level procedure
