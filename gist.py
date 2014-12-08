@@ -66,6 +66,16 @@ def main():
   parser_getGist.add_argument('-o', '--override', action='store_true', help="Allows local files to be overwritten.")
   parser_getGist.set_defaults(action=getGist)
 
+  parser_createGist = subparsers.add_parser('create',
+       help='Creates a gist from a file or files.',
+       description="""Creates a gist from a file or files.""")
+  parser_createGist.add_argument('FILE', type=str, nargs='+', help="Names of file(s) to upload to gist.")
+  parser_createGist.add_argument('-t', '--title', type=str,
+       help="Description of gist. By default the file name(s) will be used for the description.")
+  parser_createGist.add_argument('-p', '--public', action='store_true',
+       help="Creates a public gist. By default a new gist will be private.")
+  parser_createGist.set_defaults(action=createGist)
+
   args = parser.parse_args()
 
   msg = args.action(args)
@@ -231,10 +241,34 @@ def getGist(args):
     if fo['truncated']: # TODO
       return "'" + filename + "' is truncated. This feature is not yet implemented!"
     else:
-      with open(filename,'w') as fs:
-        fs.write(fo['content'])
+      with open(filename,'w') as fh:
+        fh.write(fo['content'])
         print 'Downloaded',filename
 
+
+def createGist(args):
+  """
+  Create gist from files
+  """
+
+  files = {}
+  for f in args.FILE:
+    with open(f,'r') as fh: files[f] = {'content': fh.read()}
+  title = ' '.join(args.FILE) if args.title is None else args.title
+  payload = {'description': title,
+             'public': args.public,
+             'files': files}
+  user, token = getStoredToken()
+  if token is None:
+    return "No stored token found. Use '" + _thisTool + " login <USER>' to obtain a token."
+  authHeader = {'Authorization': 'token '+token}
+  response = requests.post(_APIurl + '/gists',
+                           headers=authHeader,
+                           data=json.dumps(payload))
+  if response.status_code != 201:
+    return 'ERROR: '+json.loads(response.text).get('message',
+           'No message returned from server.')
+  return 'Created gist with id '+response.json()['id']
 
 # Invoke the top-level procedure
 if __name__ == '__main__': main()
