@@ -76,6 +76,16 @@ def main():
        help="Creates a public gist. By default a new gist will be private.")
   parser_createGist.set_defaults(action=createGist)
 
+  parser_updateGist = subparsers.add_parser('update',
+       help='Updates a gist with a file or files.',
+       description="""Updates a gist with a file or files. Files replace existing files in the gist with the same filenames.
+                      Non-matching filenames will appear as new files in the gist.""")
+  parser_updateGist.add_argument('GISTID', type=str, help="A gist id. Usually a 20 character hex or a long integer.")
+  parser_updateGist.add_argument('FILE', type=str, nargs='+', help="Names of file(s) to update or upload to gist.")
+  parser_updateGist.add_argument('-t', '--title', type=str,
+       help="New description of gist. By default the description is unchanged.")
+  parser_updateGist.set_defaults(action=updateGist)
+
   args = parser.parse_args()
 
   msg = args.action(args)
@@ -269,6 +279,30 @@ def createGist(args):
     return 'ERROR: '+json.loads(response.text).get('message',
            'No message returned from server.')
   return 'Created gist with id '+response.json()['id']
+
+
+def updateGist(args):
+  """
+  Update gist with files
+  """
+
+  files = {}
+  for f in args.FILE:
+    with open(f,'r') as fh: files[f] = {'content': fh.read()}
+  payload = {'files': files}
+  if args.title is not None: payload['description'] = args.title
+  user, token = getStoredToken()
+  if token is None:
+    return "No stored token found. Use '" + _thisTool + " login <USER>' to obtain a token."
+  authHeader = {'Authorization': 'token '+token}
+  response = requests.post(_APIurl + '/gists/' + args.GISTID,
+                           headers=authHeader,
+                           data=json.dumps(payload))
+  if response.status_code != 200:
+    return 'ERROR: '+json.loads(response.text).get('message',
+           'No message returned from server.')
+  return 'Updated gist'
+
 
 # Invoke the top-level procedure
 if __name__ == '__main__': main()
