@@ -87,10 +87,12 @@ def main():
   parser_updateGist.set_defaults(action=updateGist)
 
   args = parser.parse_args()
-
-  msg = args.action(args)
-  # The actions associated with each sub-command can return a message (errors) or None.
-  if msg is not None: print msg
+  if 'action' not in vars(args): # Catch no arguments at all in which case there is no action
+    print('Try: gist.py --help')
+  else:
+    msg = args.action(args)
+    # The actions associated with each sub-command can return a message (errors) or None.
+    if msg is not None: print(msg)
 
 
 def logIn(args):
@@ -147,7 +149,7 @@ def logOut(args):
   user, token = getStoredToken()
   if token is None:
     return 'No stored token found. Did you already log out?'
-  print 'To delete the token on GitHub you must use basic authorization. Leave blank to abort.'
+  print('To delete the token on GitHub you must use basic authorization. Leave blank to abort.')
   password = getpass.getpass('GitHub password: ')
   if password is '': return 'Aborting logout'
   response = requests.get(_APIurl + '/authorizations',
@@ -196,7 +198,7 @@ def listGists(args):
       if (entries>=args.nentries):
         return 'Stopped streaming after %i responses.' % entries
       visibility = 'public' if g['public'] else 'private'
-      print '%-20s %-7s %s' % (g['id'], visibility, g['description'])
+      print('%-20s %-7s %s' % (g['id'], visibility, g['description']))
       entries += 1
 
 
@@ -208,8 +210,8 @@ def gistInfo(args):
   user, token = getStoredToken()
   if token is None:
     authHeader = {}
-    print "No stored token found. Trying with public access. Otherwise use '" + \
-          _thisTool + " login <USER>' to obtain a token."
+    print("No stored token found. Trying with public access. Otherwise use '" + \
+          _thisTool + " login <USER>' to obtain a token.")
   else: authHeader = {'Authorization': 'token '+token}
   url = _APIurl + '/gists/' + args.GISTID
   response = requests.get(url, headers=authHeader)
@@ -223,7 +225,7 @@ def gistInfo(args):
   for f in d['files']:
     del d['files'][f]['content']
   del d['history']
-  print json.dumps(d, indent=2)
+  print(json.dumps(d, indent=2))
 
 
 def getGist(args):
@@ -234,8 +236,8 @@ def getGist(args):
   user, token = getStoredToken()
   if token is None:
     authHeader = {}
-    print "No stored token found. Trying with public access. Otherwise use '" + \
-          _thisTool + " login <USER>' to obtain a token."
+    print("No stored token found. Trying with public access. Otherwise use '" + \
+          _thisTool + " login <USER>' to obtain a token.")
   else: authHeader = {'Authorization': 'token '+token}
   url = _APIurl + '/gists/' + args.GISTID
   response = requests.get(url, headers=authHeader)
@@ -253,7 +255,7 @@ def getGist(args):
     else:
       with open(filename,'w') as fh:
         fh.write(fo['content'])
-        print 'Downloaded',filename
+        print('Downloaded',filename)
 
 
 def createGist(args):
